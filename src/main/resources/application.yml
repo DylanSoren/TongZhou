@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: tongzhou
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/tongzhou
+    username: root
+    password: ysq666666
+  # session失效时间
+  session:
+    timeout: 86400
+
+server:
+  port: 8080
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+    default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
+
+logging:
+  level:
+    edu.scut.tongzhou: info
