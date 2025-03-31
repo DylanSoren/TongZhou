@@ -18,6 +18,10 @@ public interface UserService extends IService<User> {
 
     Integer userLogout(HttpServletRequest request);
 
+    List<User> searchUserByTagsUsingSQL(List<String> tagList);
+
+    List<User> searchUserByTagsUsingMemory(List<String> tagList);
+
     User getSafetyUser(User originUser);
 
     User getCurrectUser(HttpServletRequest request);

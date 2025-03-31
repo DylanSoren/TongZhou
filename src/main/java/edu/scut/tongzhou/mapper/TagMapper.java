@@ -2,6 +2,7 @@ package edu.scut.tongzhou.mapper;
 
 import edu.scut.tongzhou.model.entity.Tag;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Mapper;
 
 /**
 * @author DS
@@ -9,6 +10,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @createDate 2025-03-30 11:29:58
 * @Entity edu.scut.tongzhou.model.entity.Tag
 */
+@Mapper
 public interface TagMapper extends BaseMapper<Tag> {
 
 }

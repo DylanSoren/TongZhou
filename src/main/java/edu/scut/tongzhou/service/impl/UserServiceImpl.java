@@ -1,10 +1,14 @@
 package edu.scut.tongzhou.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.ReUtil;
 import cn.hutool.crypto.SecureUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import edu.scut.tongzhou.exception.ThrowUtils;
 import edu.scut.tongzhou.model.entity.User;
 import edu.scut.tongzhou.service.UserService;
@@ -13,7 +17,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static edu.scut.tongzhou.common.StatusCode.*;
 import static edu.scut.tongzhou.constant.UserConstant.USER_LOGIN_STATE;
@@ -128,6 +134,45 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
+     * 根据标签搜索用户(SQL方式)
+     * @param tagList 标签列表
+     * @return 用户列表(脱敏后)
+     */
+    @Override
+    public List<User> searchUserByTagsUsingSQL(List<String> tagList) {
+        ThrowUtils.throwIf(CollUtil.isEmpty(tagList), PARAMS_ERROR, "标签不能为空");
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        for (String tag : tagList) {
+            queryWrapper.like("tags", tag);
+        }
+        List<User> userList = this.list(queryWrapper);
+        return userList.stream().map(this::getSafetyUser).toList();
+    }
+
+    /**
+     * 根据标签搜索用户(内存方式)
+     * @param tagList 标签列表
+     * @return 用户列表(脱敏后)
+     */
+    @Override
+    public List<User> searchUserByTagsUsingMemory(List<String> tagList) {
+        ThrowUtils.throwIf(CollUtil.isEmpty(tagList), PARAMS_ERROR, "标签不能为空");
+        List<User> userList = this.list();
+        Gson gson = new Gson();
+        return userList.stream().filter(user -> {
+                    String tagsStr = user.getTags();
+                    Set<String> tagsOfUser = gson.fromJson(tagsStr, new TypeToken<Set<String>>(){}.getType());
+                    if (CollUtil.isEmpty(tagsOfUser)) return false;
+                    boolean flag = true;
+                    for (String tag : tagList) {
+                        flag = flag && tagsOfUser.stream().anyMatch(tU -> ReUtil.isMatch(".*" + tag + ".*", tU));
+                    }
+                    return flag;
+                })
+                .map(this::getSafetyUser).toList();
+    }
+
+    /**
      * 用户信息脱敏
      * @param originUser 原始用户信息
      * @return 脱敏后的用户信息
@@ -162,7 +207,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     /**
      * 查询用户
      * @param username 用户名
-     * @return 用户列表
+     * @return 用户列表(脱敏后)
      */
     @Override
     public List<User> searchUsers(String username) {
