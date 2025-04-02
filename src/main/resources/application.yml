@@ -6,12 +6,25 @@ spring:
     url: jdbc:mysql://localhost:3306/tongzhou
     username: root
     password: ysq666666
-  # session失效时间
+  # redis配置
+  data:
+    redis:
+      port: 6379
+      host: localhost
+      database: 0
+  # session失效时间(分钟)
   session:
     timeout: 86400
+    # SpringBoot3中已将store-type移除，会自动检测
 
 server:
   port: 8080
+  servlet:
+    # 若将context-path设置为 /api，所有接口访问需以 /api 开头
+    context-path: /
+    session:
+      cookie:
+        domain: localhost
 
 mybatis-plus:
   global-config:

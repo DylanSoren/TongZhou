@@ -1,5 +1,6 @@
 package edu.scut.tongzhou.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import edu.scut.tongzhou.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,7 +17,9 @@ public interface UserService extends IService<User> {
 
     User userLogin(String userAccount, String userPassword, HttpServletRequest request);
 
-    Integer userLogout(HttpServletRequest request);
+    int userLogout(HttpServletRequest request);
+
+    List<User> searchUsers(String username, HttpServletRequest request);
 
     List<User> searchUserByTagsUsingSQL(List<String> tagList);
 
@@ -24,9 +27,13 @@ public interface UserService extends IService<User> {
 
     User getSafetyUser(User originUser);
 
-    User getCurrectUser(HttpServletRequest request);
+    User getCurrentUser(HttpServletRequest request);
 
-    List<User> searchUsers(String username);
+    boolean updateUser(User user, HttpServletRequest request);
 
-    Boolean deleteUser(Long id);
+    boolean deleteUser(Long id, HttpServletRequest request);
+
+    boolean isNotAdmin(HttpServletRequest request);
+
+    Page<User> homePageUsers(long pageNum, long pageSize);
 }

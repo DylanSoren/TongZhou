@@ -1,6 +1,8 @@
 package edu.scut.tongzhou.controller;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.text.CharSequenceUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import edu.scut.tongzhou.common.BaseResponse;
 import edu.scut.tongzhou.common.ResultUtils;
 import edu.scut.tongzhou.exception.ThrowUtils;
@@ -14,10 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-import static edu.scut.tongzhou.common.StatusCode.NO_AUTH_ERROR;
-import static edu.scut.tongzhou.common.StatusCode.PARAMS_ERROR;
-import static edu.scut.tongzhou.constant.UserConstant.USER_LOGIN_STATE;
-import static edu.scut.tongzhou.constant.UserRole.ADMIN_ROLE;
+import static edu.scut.tongzhou.common.StatusCode.*;
 
 /**
  * @author DylanS
@@ -45,7 +44,8 @@ public class UserController {
 
     @PostMapping("/login")
     public BaseResponse<User> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
-        ThrowUtils.throwIf(userLoginRequest == null || request == null, PARAMS_ERROR);
+        ThrowUtils.throwIf(userLoginRequest == null, PARAMS_ERROR);
+        ThrowUtils.throwIf(request == null, PARAMS_ERROR);
 
         String userAccount = userLoginRequest.getUserAccount();
         String userPassword = userLoginRequest.getUserPassword();
@@ -64,33 +64,48 @@ public class UserController {
     }
 
     @GetMapping("/current")
-    public BaseResponse<User> getCurrectUser(HttpServletRequest request) {
+    public BaseResponse<User> getCurrentUser(HttpServletRequest request) {
         ThrowUtils.throwIf(request == null, PARAMS_ERROR);
-        User currectUser = userService.getCurrectUser(request);
-        return ResultUtils.success(currectUser);
+        User currentUser = userService.getCurrentUser(request);
+        return ResultUtils.success(currentUser);
     }
 
     @GetMapping("/search")
     public BaseResponse<List<User>> searchUsers(String username, HttpServletRequest request) {
-        ThrowUtils.throwIf(isNotAdmin(request), NO_AUTH_ERROR);
-        List<User> users = userService.searchUsers(username);
+        ThrowUtils.throwIf(request == null, PARAMS_ERROR);
+        List<User> users = userService.searchUsers(username, request);
         return ResultUtils.success(users);
+    }
+
+    @GetMapping("/search/tags")
+    public BaseResponse<List<User>> searchUsersByTags(@RequestParam(required = false) List<String> tagList) {
+        ThrowUtils.throwIf(CollUtil.isEmpty(tagList), PARAMS_ERROR);
+        List<User> users = userService.searchUserByTagsUsingSQL(tagList);
+        return ResultUtils.success(users);
+    }
+
+    @PostMapping("/update")
+    public BaseResponse<Boolean> updateUser(@RequestBody User user, HttpServletRequest request) {
+        ThrowUtils.throwIf(user == null, PARAMS_ERROR);
+        ThrowUtils.throwIf(request == null, PARAMS_ERROR);
+        Boolean result = userService.updateUser(user, request);
+        return ResultUtils.success(result);
     }
 
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteUser(@RequestBody Long id, HttpServletRequest request) {
-        ThrowUtils.throwIf(isNotAdmin(request), NO_AUTH_ERROR);
-        Boolean result = userService.deleteUser(id);
+        ThrowUtils.throwIf(id == null, PARAMS_ERROR);
+        Boolean result = userService.deleteUser(id, request);
         return ResultUtils.success(result);
     }
 
-    /**
-     * 是否为管理员
-     * @param request HTTP请求
-     * @return 判断结果
-     */
-    private static boolean isNotAdmin(HttpServletRequest request) {
-        User user = (User) request.getSession().getAttribute(USER_LOGIN_STATE);
-        return user == null || user.getUserRole() != ADMIN_ROLE;
+    @GetMapping("/homePage")
+    public BaseResponse<Page<User>> homePageUsers(Long pageNum, Long pageSize) {
+        ThrowUtils.throwIf(pageNum == null, PARAMS_ERROR, "pageNum不能为空");
+        ThrowUtils.throwIf(pageSize == null, PARAMS_ERROR, "pageSize不能为空");
+        ThrowUtils.throwIf(pageNum < 0, PARAMS_ERROR, "pageNum不能小于等于0");
+        ThrowUtils.throwIf(pageSize < 0, PARAMS_ERROR, "pageSize不能小于等于0");
+        Page<User> usersPage = userService.homePageUsers(pageNum, pageSize);
+        return ResultUtils.success(usersPage);
     }
 }

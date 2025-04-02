@@ -1,11 +1,11 @@
 package edu.scut.tongzhou.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.ReUtil;
 import cn.hutool.crypto.SecureUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -17,13 +17,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static edu.scut.tongzhou.common.StatusCode.*;
 import static edu.scut.tongzhou.constant.UserConstant.USER_LOGIN_STATE;
 import static edu.scut.tongzhou.constant.UserConstant.USER_LOGOUT_SUCCESS;
+import static edu.scut.tongzhou.constant.UserRole.ADMIN_ROLE;
 
 /**
 * @author DS
@@ -82,7 +83,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return user.getId();
     }
 
-
     /**
      *
      * @param userAccount 用户账号
@@ -128,9 +128,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return 注销返回信息
      */
     @Override
-    public Integer userLogout(HttpServletRequest request) {
+    public int userLogout(HttpServletRequest request) {
         request.getSession().removeAttribute(USER_LOGIN_STATE);
         return USER_LOGOUT_SUCCESS;
+    }
+
+    /**
+     * 查询用户
+     * @param username 用户名
+     * @return 用户列表(脱敏后)
+     */
+    @Override
+    public List<User> searchUsers(String username, HttpServletRequest request) {
+        ThrowUtils.throwIf(isNotAdmin(request), NO_AUTH_ERROR);
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        if (!CharSequenceUtil.hasBlank(username)) {
+            queryWrapper.like("username", username);
+        }
+        List<User> userList = this.list(queryWrapper);
+        return userList.stream().map(this::getSafetyUser).toList();
     }
 
     /**
@@ -200,23 +216,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return 脱敏后的用户信息
      */
     @Override
-    public User getCurrectUser(HttpServletRequest request) {
-        return (User) request.getSession().getAttribute(USER_LOGIN_STATE);
+    public User getCurrentUser(HttpServletRequest request) {
+        User currentUser = (User) request.getSession().getAttribute(USER_LOGIN_STATE);
+        ThrowUtils.throwIf(currentUser == null, NOT_FOUND_ERROR, "用户未登录");
+        return currentUser;
     }
 
-    /**
-     * 查询用户
-     * @param username 用户名
-     * @return 用户列表(脱敏后)
-     */
     @Override
-    public List<User> searchUsers(String username) {
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        if (!CharSequenceUtil.hasBlank(username)) {
-            queryWrapper.like("username", username);
-        }
-        List<User> userList = this.list(queryWrapper);
-        return userList.stream().map(this::getSafetyUser).toList();
+    public boolean updateUser(User user, HttpServletRequest request) {
+        Long id = user.getId();
+        ThrowUtils.throwIf(id == null, PARAMS_ERROR, "用户ID不能为空");
+        ThrowUtils.throwIf(id <= 0, PARAMS_ERROR, "用户ID应为正整数");
+        // 不允许更新自己之外用户的信息
+        ThrowUtils.throwIf(isNotAdmin(request)
+                        && !Objects.equals(user.getId(), getCurrentUser(request).getId()),
+                        NO_AUTH_ERROR, "用户无权限");
+        // 判断要更新的用户是否存在
+        User originUser = this.getById(id);
+        ThrowUtils.throwIf(originUser == null, NOT_FOUND_ERROR, "用户不存在");
+        // 更新用户信息
+        return this.updateById(user);
     }
 
     /**
@@ -225,9 +244,36 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return 是否删除成功
      */
     @Override
-    public Boolean deleteUser(Long id) {
+    public boolean deleteUser(Long id, HttpServletRequest request) {
+        ThrowUtils.throwIf(isNotAdmin(request), NO_AUTH_ERROR, "用户无权限");
         ThrowUtils.throwIf(id <= 0, PARAMS_ERROR, "用户ID应为正整数");
         return this.removeById(id);
+    }
+
+    /**
+     * 是否为管理员
+     * @param request HTTP请求
+     * @return 判断结果
+     */
+    @Override
+    public boolean isNotAdmin(HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        return user == null || user.getUserRole() != ADMIN_ROLE;
+    }
+
+    /**
+     * 返回主页信息（实际为部分用户的信息）
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 用户列表
+     */
+    @Override
+    public Page<User> homePageUsers(long pageNum, long pageSize) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        Page<User> usersPage = this.page(new Page<>(pageNum, pageSize), queryWrapper);
+        ThrowUtils.throwIf(usersPage == null, NOT_FOUND_ERROR, "用户不存在");
+        usersPage.setRecords(usersPage.getRecords().stream().map(this::getSafetyUser).toList());
+        return usersPage;
     }
 }
 
