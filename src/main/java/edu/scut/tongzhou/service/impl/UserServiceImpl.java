@@ -13,13 +13,17 @@ import edu.scut.tongzhou.exception.ThrowUtils;
 import edu.scut.tongzhou.model.entity.User;
 import edu.scut.tongzhou.service.UserService;
 import edu.scut.tongzhou.mapper.UserMapper;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static edu.scut.tongzhou.common.StatusCode.*;
 import static edu.scut.tongzhou.constant.UserConstant.USER_LOGIN_STATE;
@@ -38,6 +42,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     // 盐值，混淆密码
     private static final String SALT = "YSQ";
+
+    @Resource
+    RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 用户注册
@@ -268,11 +275,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return 用户列表
      */
     @Override
-    public Page<User> homePageUsers(long pageNum, long pageSize) {
+    public Page<User> homePageUsers(long pageNum, long pageSize, HttpServletRequest request) {
+        User currentUser = getCurrentUser(request);
+        String redisKey = "tongzhou:user:homepageuser:" + currentUser.getId();
+        // 从redis中查询
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        Page<User> usersPage = (Page<User>) valueOperations.get(redisKey);
+        if (usersPage != null) {
+            return usersPage;
+        }
+
+        // 从数据库中查询
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        Page<User> usersPage = this.page(new Page<>(pageNum, pageSize), queryWrapper);
+        usersPage = this.page(new Page<>(pageNum, pageSize), queryWrapper);
         ThrowUtils.throwIf(usersPage == null, NOT_FOUND_ERROR, "用户不存在");
         usersPage.setRecords(usersPage.getRecords().stream().map(this::getSafetyUser).toList());
+        // 将数据存入redis中
+        try {
+            valueOperations.set(redisKey, usersPage, 60, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.error("redis set error", e);
+        }
         return usersPage;
     }
 }

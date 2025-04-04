@@ -100,12 +100,12 @@ public class UserController {
     }
 
     @GetMapping("/homePage")
-    public BaseResponse<Page<User>> homePageUsers(Long pageNum, Long pageSize) {
+    public BaseResponse<Page<User>> homePageUsers(Long pageNum, Long pageSize, HttpServletRequest request) {
         ThrowUtils.throwIf(pageNum == null, PARAMS_ERROR, "pageNum不能为空");
         ThrowUtils.throwIf(pageSize == null, PARAMS_ERROR, "pageSize不能为空");
         ThrowUtils.throwIf(pageNum < 0, PARAMS_ERROR, "pageNum不能小于等于0");
         ThrowUtils.throwIf(pageSize < 0, PARAMS_ERROR, "pageSize不能小于等于0");
-        Page<User> usersPage = userService.homePageUsers(pageNum, pageSize);
+        Page<User> usersPage = userService.homePageUsers(pageNum, pageSize, request);
         return ResultUtils.success(usersPage);
     }
 }

@@ -35,5 +35,5 @@ public interface UserService extends IService<User> {
 
     boolean isNotAdmin(HttpServletRequest request);
 
-    Page<User> homePageUsers(long pageNum, long pageSize);
+    Page<User> homePageUsers(long pageNum, long pageSize, HttpServletRequest request);
 }
